@@ -231,11 +231,25 @@ class sensorarray:
         y = corners[2]-corners[0]
         z = corners[3]-corners[0]
         self.sensors = []
-        for i in range(xdim):
-            for j in range(ydim):
-                for k in range(zdim):
-                    pos = corners[0]+x*i/(xdim-1)+y*j/(ydim-1)+z*k/(zdim-1)
-                    self.sensors.append(sensor(pos))
+        if(xdim==1 and ydim==1 and zdim==1):
+            pos = corners[0]+x/2+y/2
+            self.sensors.append(sensor(pos))
+            pos = corners[0]+x/2+y/2+z
+            self.sensors.append(sensor(pos))
+            pos = corners[0]+y/2+z/2
+            self.sensors.append(sensor(pos))
+            pos = corners[0]+y/2+z/2+x
+            self.sensors.append(sensor(pos))
+            pos = corners[0]+x/2+z/2
+            self.sensors.append(sensor(pos))
+            pos = corners[0]+x/2+z/2+y
+            self.sensors.append(sensor(pos))
+        else:
+            for i in range(xdim):
+                for j in range(ydim):
+                    for k in range(zdim):
+                        pos = corners[0]+x*i/(xdim-1)+y*j/(ydim-1)+z*k/(zdim-1)
+                        self.sensors.append(sensor(pos))
         self.numsensors = len(self.sensors)
     def draw_sensor(self,number,ax):
         x = self.sensors[number].pos[0]
@@ -249,7 +263,7 @@ class sensorarray:
             self.draw_sensor(number,ax)
 
 # test of sensorarray class
-a = 0.8
+a = 0.9
 p0 = np.array([-a/2,-a/2,-a/2])
 p1 = p0 + np.array([a,0,0])
 p2 = p0 + np.array([0,a,0])
