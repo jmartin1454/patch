@@ -265,6 +265,8 @@ mycube.coil(0).set_current(0.0)
 
 
 from math import log10
+from matplotlib import cm
+from decimal import Decimal
 
 class the_matrix:
     def __init__(self,mycube,myarray):
@@ -286,14 +288,14 @@ class the_matrix:
 	    self.L_V.append(round(log10(self.V[i]),1))
         print "The Diagonal Matrix in log form is : ", self.L_V
     def fill(self,mycube,myarray):
-        # fill m, units of T/A
+        # fill m, units of nT/A
         for i in range(mycube.numcoils):
             mycube.coil(i).set_current(1.0)
             for j in range(myarray.numsensors):
                 r = myarray.sensors[j].pos
                 b = mycube.b(r)
                 for k in range(3):
-                    self.m[i,j*3+k]=b[k]
+                    self.m[i,j*3+k]=b[k]*1.e9 # convert to nT here
             mycube.coil(i).set_current(0.0)
     def check_field_graphically(self,mycube,myarray):
         # test each coil by graphing field at each sensor
@@ -324,9 +326,79 @@ class the_matrix:
         plt.imshow(self.minv,interpolation='none')
         plt.colorbar()
         plt.show()
+    def show_matrices(self):
+        mp=1000000
+        mp4=1000
+        mp6=100
+        mp4s='%.1E' % Decimal(1000)
+        mp6s='%.1E' % Decimal(100)
+        mps='%.1E' % Decimal(1000000)
+        column_labels = ['1x', '1y', '1z','2x', '2y', '2z','3x', '3y', '3z','4x', '4y', '4z','6x', '6y', '6z', '8x', '8y', '8z']
+        row_labels_all = ['X-(1)', 'X+(2)', 'Y-(3)', 'Y+(4)', 'Z-(5)', 'Z+(6)']
+        row_labels=[]
+        for d in range(len(np.arange(self.m.shape[0]))):
+	    row_labels.append(row_labels_all[d])
 
+        fig1, ax1 = plt.subplots()
+        fig2, ax2 = plt.subplots()
+        fig3, ax3 = plt.subplots()
+        fig4, ax4 = plt.subplots()
+        fig6, ax6 = plt.subplots()
+
+
+        ax1.imshow(self.m, interpolation='none', cmap=cm.bwr, aspect='auto' )
+        ax2.imshow(self.capital_M1, interpolation='nearest', cmap=cm.bwr, aspect='auto' )
+        ax3.imshow(self.Vmat, interpolation='nearest', cmap=cm.bwr, aspect='auto' )
+        ax4.imshow(self.U, interpolation='nearest', cmap=cm.bwr, aspect='auto' )
+        ax6.imshow(self.Wt, interpolation='nearest', cmap=cm.bwr, aspect='auto' )
+
+        #ax1.set_xticklabels(column_labels)
+        #ax2.set_xticklabels(column_labels)
+
+        ax1.set_xticks(np.arange(self.m.shape[1]))
+        ax1.set_yticks(np.arange(self.m.shape[0]))
+        ax1.set_xlabel('Fluxgate positions')
+        ax1.set_ylabel('Coils')
+        ax1.set_yticklabels(row_labels)
+        ax1.set_title('Matrix M* (nT/A) ('+str(len(np.arange(self.m.shape[0])))+'coils * '+str(len(np.arange(self.m.shape[1])))+'sensors)')
+
+        ax2.set_xticks(np.arange(self.capital_M1.shape[1]))
+        ax2.set_yticks(np.arange(self.capital_M1.shape[0]))
+        ax2.set_xlabel('Fluxgate positions')
+        ax2.set_ylabel('Coils')
+        ax2.set_yticklabels(row_labels)
+        ax2.set_title('Pseudoinverse of M (*'+str(mps)+') (A/nT) ('+str(len(np.arange(self.m.shape[0])))+'coils * '+str(len(np.arange(self.m.shape[1])))+'sensors)')
+
+        ax3.set_xticks(np.arange(self.Vmat.shape[1]))
+        ax3.set_yticks(np.arange(self.Vmat.shape[0]))
+        ax3.set_title('V-Sqrt of eigenvalues of M*M & MM* ('+str(len(np.arange(self.m.shape[1])))+'* '+str(len(np.arange(self.m.shape[0])))+')')
+
+        ax4.set_xticks(np.arange(self.U.shape[1]))
+        ax4.set_yticks(np.arange(self.U.shape[0]))
+        ax4.set_title('U-Orthonormal eigenvectors(*'+str(mp4s)+') of MM* ('+str(len(np.arange(self.m.shape[1])))+'*'+str(len(np.arange(self.m.shape[1])))+')')
+        
+        ax6.set_xticks(np.arange(self.Wt.shape[1]))
+        ax6.set_yticks(np.arange(self.Wt.shape[0]))
+        ax6.set_title('W*-Orthonormal eigenvectors(*'+str(mp6s)+') of M*M ('+str(len(np.arange(self.m.shape[0])))+'*'+str(len(np.arange(self.m.shape[0])))+')')
+
+        for c in range (0,len(np.arange(self.m.shape[0]))):
+	    for s in range (0,len(np.arange(self.m.shape[1]))):
+		ax1.text(s, c, int(self.m[c][s]), va='center', ha='center', rotation=90)
+		ax2.text(s, c, int(self.capital_M1[c][s]*mp), va='center', ha='center', rotation=90)
+		ax3.text(c, s, int(self.Vmat[s][c]), va='center', ha='center')
+
+        for c in range (0,len(np.arange(self.U.shape[0]))):
+	    for s in range (0,len(np.arange(self.U.shape[1]))):
+		ax4.text(s, c, int(self.U[c][s]*mp4), va='center', ha='center')
+
+        for c in range (0,len(np.arange(self.Wt.shape[0]))):
+	    for s in range (0,len(np.arange(self.Wt.shape[1]))):
+		ax6.text(s, c, int(self.Wt[c][s]*mp6), va='center', ha='center')
+
+        plt.show()
+
+        
 mymatrix = the_matrix(mycube,myarray)
 
-mymatrix.show_matrix()
-mymatrix.show_inverse()
 print(mymatrix.condition)
+mymatrix.show_matrices()
