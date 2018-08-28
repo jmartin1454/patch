@@ -172,6 +172,10 @@ thiscoil.set_current(i/2.0)
 print(thiscoil.b(r))
 
 # test of face class -- made a slight change after this test
+
+# p0 is kind of like the origin; p1 and p3 are kind of like basis
+# vectors, defining the sides of the rectangular face, whose corner is
+# p0
 points = (p0,p1,p3)
 thisface = face(2,2,points)
 print(thisface.coilnum)
@@ -181,6 +185,9 @@ print(thisface.coil[2].corners)
 print(thisface.coil[3].corners)
 
 # test of coilcube class
+
+# again p0 is like the origin; p1, p2, and p3 define the x, y, and z
+# (or whatever order) sides of the cube
 print("Coilcube test")
 a = 1.0
 p0 = np.array([-a/2,-a/2,-a/2])
@@ -190,7 +197,7 @@ p3 = p0 + np.array([0,0,a])
 points = (p0,p1,p2,p3)
 print('hello')
 print(points)
-mycube = coilcube(2,2,2,points)
+mycube = coilcube(1,1,1,points)
 #print(mycube.face[1].coil[2].corners)
 #print(mycube.coil(6).corners)
 #print(mycube.coil(6).current)
@@ -230,7 +237,7 @@ p1 = p0 + np.array([a,0,0])
 p2 = p0 + np.array([0,a,0])
 p3 = p0 + np.array([0,0,a])
 points = (p0,p1,p2,p3)
-myarray = sensorarray(11,11,11,points)
+myarray = sensorarray(2,2,2,points)
 print(myarray.sensors[0].pos)
 print(myarray.numsensors)
 print(myarray.sensors[myarray.numsensors-1].pos)
@@ -251,58 +258,75 @@ ax.legend()
 plt.show()
 
 
-
 print(mycube.b(myarray.sensors[0].pos))
 mycube.coil(0).set_current(1.0)
 print(mycube.b(myarray.sensors[0].pos))
 mycube.coil(0).set_current(0.0)
 
 
-m = np.zeros((mycube.numcoils,myarray.numsensors*3))
-print(m)
+from math import log10
 
-# test each coil by graphing field at each sensor
-#for i in range(mycube.numcoils):
-#    fig = plt.figure()
-#    ax = fig.gca(projection='3d')
-#    mycube.draw_coil(i,ax)
-#    mycube.coil(i).set_current(1.0)
-#    for j in range(myarray.numsensors):
-#        r = myarray.sensors[j].pos
-#        b=mycube.b(r)
-#        bhat=b*5.e4
-#        points = []
-#        points.append(r)
-#        points.append(r+bhat)
-#        xs = ([p[0] for p in points])
-#        ys = ([p[1] for p in points])
-#        zs = ([p[2] for p in points])
-#        ax.plot(xs,ys,zs)
-#    mycube.coil(i).set_current(0.0)
-#    ax.legend()
-#    plt.show()
+class the_matrix:
+    def __init__(self,mycube,myarray):
+        self.m = np.zeros((mycube.numcoils,myarray.numsensors*3))
+        self.fill(mycube,myarray)
+        self.minv=np.linalg.pinv(self.m)
+        self.condition = np.linalg.cond(self.m)
+        self.capital_M=self.m.T #(Here, M=s*c=sensors*coils Matrix  )
+        self.capital_M1=np.linalg.pinv(self.capital_M)
 
-# fill m
-for i in range(mycube.numcoils):
-    if(i%2 == 0):
-        print('Even')
-        mycube.coil(i).set_current(1.0)
-    else:
-        print('Odd')
-        mycube.coil(i).set_current(-1.0)
-    for j in range(myarray.numsensors):
-        r = myarray.sensors[j].pos
-        b = mycube.b(r)
-        for k in range(3):
-            m[i,j*3+k]=b[k]
-    mycube.coil(i).set_current(0.0)
-plt.imshow(m,interpolation='none')
-plt.colorbar()
-plt.show()
+        self.U, self.V, self.Wt = np.linalg.svd(self.capital_M, full_matrices=True)
+        self.W, self.Vinv, self.Ut = np.linalg.svd(self.capital_M1, full_matrices=True)
+        self.Vmat=np.zeros([len(np.arange(self.m.shape[1])),len(np.arange(self.m.shape[0]))]) 
+        for d in range (0,len(np.arange(self.m.shape[0])),1):
+	    self.Vmat[d][d]=self.V[d]
+        self.Vmat_T=self.Vmat.T
+        self.L_V=[]
+        for i in range (0,len(np.arange(self.m.shape[0])),1):
+	    self.L_V.append(round(log10(self.V[i]),1))
+        print "The Diagonal Matrix in log form is : ", self.L_V
+    def fill(self,mycube,myarray):
+        # fill m, units of T/A
+        for i in range(mycube.numcoils):
+            mycube.coil(i).set_current(1.0)
+            for j in range(myarray.numsensors):
+                r = myarray.sensors[j].pos
+                b = mycube.b(r)
+                for k in range(3):
+                    self.m[i,j*3+k]=b[k]
+            mycube.coil(i).set_current(0.0)
+    def check_field_graphically(self,mycube,myarray):
+        # test each coil by graphing field at each sensor
+        for i in range(mycube.numcoils):
+            fig = plt.figure()
+            ax = fig.gca(projection='3d')
+            mycube.draw_coil(i,ax)
+            mycube.coil(i).set_current(1.0)
+            for j in range(myarray.numsensors):
+                r = myarray.sensors[j].pos
+                b=mycube.b(r)
+                bhat=b*5.e4
+                points = []
+                points.append(r)
+                points.append(r+bhat)
+                xs = ([p[0] for p in points])
+                ys = ([p[1] for p in points])
+                zs = ([p[2] for p in points])
+                ax.plot(xs,ys,zs)
+            mycube.coil(i).set_current(0.0)
+            ax.legend()
+            plt.show()
+    def show_matrix(self):
+        plt.imshow(self.m,interpolation='none')
+        plt.colorbar()
+        plt.show()
+    def show_inverse(self):
+        plt.imshow(self.minv,interpolation='none')
+        plt.colorbar()
+        plt.show()
 
-minv = np.linalg.pinv(m)
-plt.imshow(minv,interpolation='none')
-plt.colorbar()
-plt.show()
+mymatrix = the_matrix(mycube,myarray)
 
-print(np.linalg.cond(m))
+mymatrix.show_matrix()
+mymatrix.show_inverse()
+print(mymatrix.condition)
