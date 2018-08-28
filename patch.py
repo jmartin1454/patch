@@ -102,6 +102,7 @@ class coilcube:
         thesecorners=thesecorners+x
         self.face.append(face(ydim,zdim,thesecorners))
         self.numcoils = (xdim*ydim + xdim*zdim + ydim*zdim)*2
+        self.numindep = self.numcoils - 1 # valid for xdim=ydim=zdim=1
     def coil(self,number):
         xdim=self.xdim
         ydim=self.ydim
@@ -118,6 +119,23 @@ class coilcube:
             return self.face[4].coil[number-xdim*ydim*2-xdim*zdim*2]
         else:
             return self.face[5].coil[number-xdim*ydim*2-xdim*zdim*2-ydim*zdim]
+    def set_independent_current(self,number,current):
+        # wire the last two coils together
+        # only works if xdim=ydim=zdim=1
+        xdim=self.xdim
+        ydim=self.ydim
+        zdim=self.zdim
+        if(number<xdim*ydim):
+            self.face[0].coil[number].set_current(current)
+        elif(number<xdim*ydim*2):
+            self.face[1].coil[number-xdim*ydim].set_current(current)
+        elif(number<xdim*ydim*2+xdim*zdim):
+            self.face[2].coil[number-xdim*ydim*2].set_current(current)
+        elif(number<xdim*ydim*2+xdim*zdim*2):
+            self.face[3].coil[number-xdim*ydim*2-xdim*zdim].set_current(current)
+        elif(number<xdim*ydim*2+xdim*zdim*2+ydim*zdim):
+            self.face[4].coil[number-xdim*ydim*2-xdim*zdim*2].set_current(current)
+            self.face[5].coil[number-xdim*ydim*2-xdim*zdim*2-ydim*zdim].set_current(current)
     def draw_coil(self,number,ax):
         coil = self.coil(number)
         points = coil.corners + (coil.corners[0],)
@@ -270,7 +288,7 @@ from decimal import Decimal
 
 class the_matrix:
     def __init__(self,mycube,myarray):
-        self.m = np.zeros((mycube.numcoils,myarray.numsensors*3))
+        self.m = np.zeros((mycube.numindep,myarray.numsensors*3))
         self.fill(mycube,myarray)
         self.minv=np.linalg.pinv(self.m)
         self.condition = np.linalg.cond(self.m)
@@ -289,14 +307,14 @@ class the_matrix:
         print "The Diagonal Matrix in log form is : ", self.L_V
     def fill(self,mycube,myarray):
         # fill m, units of nT/A
-        for i in range(mycube.numcoils):
-            mycube.coil(i).set_current(1.0)
+        for i in range(mycube.numindep):
+            mycube.set_independent_current(i,1.0)
             for j in range(myarray.numsensors):
                 r = myarray.sensors[j].pos
                 b = mycube.b(r)
                 for k in range(3):
                     self.m[i,j*3+k]=b[k]*1.e9 # convert to nT here
-            mycube.coil(i).set_current(0.0)
+            mycube.set_independent_current(i,0.0)
     def check_field_graphically(self,mycube,myarray):
         # test each coil by graphing field at each sensor
         for i in range(mycube.numcoils):
