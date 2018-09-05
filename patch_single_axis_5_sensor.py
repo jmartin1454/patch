@@ -93,14 +93,14 @@ class coilcube:
         self.face.append(face(xdim,ydim,thesecorners))
         thesecorners=thesecorners+z
         self.face.append(face(xdim,ydim,thesecorners))
-        thesecorners=(corners[0],corners[1],corners[3])
-        self.face.append(face(xdim,zdim,thesecorners))
-        thesecorners=thesecorners+y
-        self.face.append(face(xdim,zdim,thesecorners))
         thesecorners=(corners[0],corners[2],corners[3])
         self.face.append(face(ydim,zdim,thesecorners))
         thesecorners=thesecorners+x
         self.face.append(face(ydim,zdim,thesecorners))
+        thesecorners=(corners[0],corners[1],corners[3])
+        self.face.append(face(xdim,zdim,thesecorners))
+        thesecorners=thesecorners+y
+        self.face.append(face(xdim,zdim,thesecorners))
         self.numcoils = (xdim*ydim + xdim*zdim + ydim*zdim)*2
         self.numindep = self.numcoils - 1 # valid for xdim=ydim=zdim=1
     def coil(self,number):
@@ -111,14 +111,14 @@ class coilcube:
             return self.face[0].coil[number]
         elif(number<xdim*ydim*2):
             return self.face[1].coil[number-xdim*ydim]
-        elif(number<xdim*ydim*2+xdim*zdim):
+        elif(number<xdim*ydim*2+ydim*zdim):
             return self.face[2].coil[number-xdim*ydim*2]
-        elif(number<xdim*ydim*2+xdim*zdim*2):
-            return self.face[3].coil[number-xdim*ydim*2-xdim*zdim]
-        elif(number<xdim*ydim*2+xdim*zdim*2+ydim*zdim):
-            return self.face[4].coil[number-xdim*ydim*2-xdim*zdim*2]
+        elif(number<xdim*ydim*2+ydim*zdim*2):
+            return self.face[3].coil[number-xdim*ydim*2-ydim*zdim]
+        elif(number<xdim*ydim*2+ydim*zdim*2+xdim*zdim):
+            return self.face[4].coil[number-xdim*ydim*2-ydim*zdim*2]
         else:
-            return self.face[5].coil[number-xdim*ydim*2-xdim*zdim*2-ydim*zdim]
+            return self.face[5].coil[number-xdim*ydim*2-ydim*zdim*2-xdim*zdim]
     def set_independent_current(self,number,current):
         # wire the last two coils together
         # only works if xdim=ydim=zdim=1
@@ -129,13 +129,13 @@ class coilcube:
             self.face[0].coil[number].set_current(current)
         elif(number<xdim*ydim*2):
             self.face[1].coil[number-xdim*ydim].set_current(current)
-        elif(number<xdim*ydim*2+xdim*zdim):
+        elif(number<xdim*ydim*2+ydim*zdim):
             self.face[2].coil[number-xdim*ydim*2].set_current(current)
-        elif(number<xdim*ydim*2+xdim*zdim*2):
-            self.face[3].coil[number-xdim*ydim*2-xdim*zdim].set_current(current)
-        elif(number<xdim*ydim*2+xdim*zdim*2+ydim*zdim):
-            self.face[4].coil[number-xdim*ydim*2-xdim*zdim*2].set_current(current)
-            self.face[5].coil[number-xdim*ydim*2-xdim*zdim*2-ydim*zdim].set_current(current)
+        elif(number<xdim*ydim*2+ydim*zdim*2):
+            self.face[3].coil[number-xdim*ydim*2-ydim*zdim].set_current(current)
+        elif(number<xdim*ydim*2+ydim*zdim*2+xdim*zdim):
+            self.face[4].coil[number-xdim*ydim*2-ydim*zdim*2].set_current(current)
+            self.face[5].coil[number-xdim*ydim*2-ydim*zdim*2-xdim*zdim].set_current(current)
     def draw_coil(self,number,ax):
         coil = self.coil(number)
         points = coil.corners + (coil.corners[0],)
@@ -302,7 +302,7 @@ from decimal import Decimal
 
 class the_matrix:
     def __init__(self,mycube,myarray):
-        self.m = np.zeros((mycube.numindep,myarray.numsensors*3))
+        self.m = np.zeros((mycube.numindep,myarray.numsensors-1))
         self.fill(mycube,myarray)
         self.minv=np.linalg.pinv(self.m)
         self.condition = np.linalg.cond(self.m)
@@ -323,11 +323,16 @@ class the_matrix:
         # fill m, units of nT/A
         for i in range(mycube.numindep):
             mycube.set_independent_current(i,1.0)
-            for j in range(myarray.numsensors):
+            for j in range(myarray.numsensors-1):
                 r = myarray.sensors[j].pos
                 b = mycube.b(r)
-                for k in range(3):
-                    self.m[i,j*3+k]=b[k]*1.e9 # convert to nT here
+                if(j==0 or j==1):
+                    thisb = b[2]
+                elif(j==2 or j==3):
+                    thisb = b[0]
+                else:
+                    thisb = b[1]
+                self.m[i,j]=thisb*1.e9 # convert to nT here
             mycube.set_independent_current(i,0.0)
     def check_field_graphically(self,mycube,myarray):
         # test each coil by graphing field at each sensor
