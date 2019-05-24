@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+# Fri May 24 10:11:45 CDT 2019 Jeff added this line.
+
+
 from scipy.constants import mu_0, pi
 import numpy as np
 
